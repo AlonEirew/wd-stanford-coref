@@ -15,13 +15,13 @@ Build And Run Within Doc coref from ECB+
 * From command line navigate to project root directory and run:
     
     
-    ./gradlew clean buildCorefJar
+    `./gradlew clean buildCorefJar`
     
 *Should get a message saying: `BUILD SUCCESSFUL in 25s`*
 * Then run command
 
     
-    java --add-modules java.se.ee -jar build/libs/stanford-coref-1.0-SNAPSHOT.jar -corpus=ECB+/1 -output=output/ecb_wd_coref.json -threads=4
+    `java --add-modules java.se.ee -jar build/libs/stanford-coref-1.0-SNAPSHOT.jar -corpus=ECB+/1 -output=output/ecb_wd_coref.json -threads=4`
 
 
 ##### Arguments:
