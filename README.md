@@ -33,8 +33,8 @@ Build And Run Within Doc coref from ECB+
 Experiment with other corpus
 --
 * Clone the repo
-* Inherit IDataLoader and create a new DataLoader for your corpus (see EcbDataLoader for how-to example)
-* replace IDataLoader in ExtractStanfordCoref.java main() method with yours implementation 
+* Inherit `IDataLoader` and create a new `DataLoader` for parsing your corpus (see `EcbDataLoader` for example)
+* replace `IDataLoader` in `ExtractStanfordCoref`, `main()` method
 
 
 Output
