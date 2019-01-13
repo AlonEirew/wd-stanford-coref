@@ -21,13 +21,14 @@ Build And Run Within Doc coref from ECB+
 * Then run command
 
     
-    java --add-modules java.se.ee -jar build/libs/stanford-coref-1.0-SNAPSHOT.jar -corpus ECB+ -output output/ecb_wd_coref.json
+    java --add-modules java.se.ee -jar build/libs/stanford-coref-1.0-SNAPSHOT.jar -corpus=ECB+/1 -output=output/ecb_wd_coref.json -threads=4
 
 
 ##### Arguments:
 
 * `-corpus`: the path location of corpus folder (eg. ECB+)
 * `-output`: file to save the json wd coref into
+* `-threads`: set number of threads to run with (Default=2)
 
 
 Experiment with other corpus

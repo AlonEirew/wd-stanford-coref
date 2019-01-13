@@ -61,7 +61,7 @@ public class Doc {
     }
 
     public List<Mention> createMentionsData() {
-        List<Mention> result = new ArrayList<>();
+        List<Mention> results = new ArrayList<>();
         for(int i = 0 ; i < this.tokens.size() ; i++) {
             Token token = this.tokens.get(i);
             Iterator<Integer> iter = token.getWithin_coref().iterator();
@@ -87,10 +87,10 @@ public class Doc {
                         break;
                     }
                 }
-                result.add(new Mention(doc_id, token.getSent_id(), tokensIds, mention_str, String.valueOf(curWithinDoc)));
+                results.add(new Mention(doc_id, token.getSent_id(), tokensIds, mention_str, String.valueOf(curWithinDoc)));
             }
         }
-        return result;
+        return results;
     }
 
     public static List<DocAnnotationPair> readToAnnotation(String corpusPath, IDataLoader parser) {

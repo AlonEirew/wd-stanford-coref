@@ -13,51 +13,74 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class ExtractStanfordCoref {
     private static StanfordCoreNLP sPipeline;
     private static Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static ExecutorService executorService = null;
 
     private static List<Mention> evaluateCoref(String ecbDocPath, IDataLoader parser) {
         final List<DocAnnotationPair> docAnnotationPairs = Doc.readToAnnotation(ecbDocPath, parser);
         final List<Mention> allMentions = new ArrayList<>();
-        for(DocAnnotationPair pair : docAnnotationPairs) {
+        docAnnotationPairs.stream().forEach(pair -> executorService.submit(() -> {
             Annotation annotDocument = pair.getAnnotation();
             Doc doc = pair.getDoc();
             sPipeline.annotate(annotDocument);
-            final Collection<CorefChain> corefChains = annotDocument.get(CorefCoreAnnotations.CorefChainAnnotation.class).values();
+            final Collection<CorefChain> corefChains =
+                    annotDocument.get(CorefCoreAnnotations.CorefChainAnnotation.class).values();
             doc.setWithinCoref(corefChains);
             allMentions.addAll(doc.createMentionsData());
             System.out.println("Done with doc-" + doc.getDoc_id());
+        }));
+
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(10, TimeUnit.MINUTES)) {
+                executorService.shutdownNow(); // Cancel currently executing tasks
+                if (!executorService.awaitTermination(10, TimeUnit.SECONDS))
+                    System.err.println("Pool did not terminate");
+            }
+        } catch (InterruptedException ie) {
+            ie.printStackTrace();
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
         }
 
         return allMentions;
     }
 
     public static void main(String[] args) throws IOException {
-        String ecb_path = null;
+        String in_corpus = null;
         String output = null;
+        int threads = 2;
         for ( int i = 0; i < args.length; i++ ) {
-            if ( args[i].equals("-corpus") ) {
-                i++;
-                ecb_path = args[i];
-            } else if ( args[i].equals("-output") ) {
-                i++;
-                output = args[i];
+            if ( args[i].startsWith("-corpus=") ) {
+                in_corpus = args[i].split("=")[1];
+            } else if ( args[i].startsWith("-output=") ) {
+                output = args[i].split("=")[1];
+            } else if ( args[i].startsWith("-threads=") ) {
+                threads = Integer.parseInt(args[i].split("=")[1]);
             }
         }
+
+        System.out.println("Starting process: corpus=" + in_corpus + ", output=" + output + ", threads=" + threads);
 
         Properties props = new Properties();
         props.setProperty("annotators", "pos,lemma,ner,parse,depparse,coref");
         props.setProperty("coref.algorithm", "neural");
+//        props.setProperty("threads", String.valueOf(threads));
         sPipeline = new StanfordCoreNLP(props, false);
+        executorService = Executors.newFixedThreadPool(threads);
 
         final File outfile = new File(output);
         long startTime = System.currentTimeMillis();
 
         IDataLoader parser = new EcbDataLoader();
+        List<Mention> mentions = evaluateCoref(in_corpus, parser);
 
-        List<Mention> mentions = evaluateCoref(ecb_path, parser);
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
 
