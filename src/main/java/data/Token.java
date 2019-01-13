@@ -6,7 +6,6 @@ public class Token {
     private int sent_id;
     private int token_id;
     private String token_text;
-    private List<Integer> doc_tok_id_span;
     private boolean span_closed;
     private Set<Integer> within_coref = new HashSet<>();
 
@@ -28,27 +27,12 @@ public class Token {
         return token_text;
     }
 
-    public List<Integer> getDoc_tok_id_span() {
-        return doc_tok_id_span;
-    }
-
     public boolean isSpan_closed() {
         return span_closed;
     }
 
     public Set<Integer> getWithin_coref() {
         return within_coref;
-    }
-
-    public void setDoc_tok_id_span(List<Integer> doc_tok_id_span) {
-        this.doc_tok_id_span = doc_tok_id_span;
-    }
-
-    public void addDoc_tok_id_span(int doc_tok_id) {
-        if(this.doc_tok_id_span == null) {
-            this.doc_tok_id_span = new ArrayList<>();
-        }
-        this.doc_tok_id_span.add(doc_tok_id);
     }
 
     public void setSpan_closed(boolean span_closed) {
@@ -72,13 +56,12 @@ public class Token {
                 token_id == token.token_id &&
                 span_closed == token.span_closed &&
                 Objects.equals(token_text, token.token_text) &&
-                Objects.equals(doc_tok_id_span, token.doc_tok_id_span) &&
                 Objects.equals(within_coref, token.within_coref);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(sent_id, token_id, token_text, doc_tok_id_span, span_closed, within_coref);
+        return Objects.hash(sent_id, token_id, token_text, span_closed, within_coref);
     }
 
     @Override
@@ -87,7 +70,6 @@ public class Token {
                 "sent_id=" + sent_id +
                 ", token_id=" + token_id +
                 ", token_text='" + token_text + '\'' +
-                ", doc_tok_id_span=" + doc_tok_id_span +
                 ", span_closed=" + span_closed +
                 ", within_coref=" + within_coref +
                 '}';

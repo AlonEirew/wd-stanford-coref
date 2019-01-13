@@ -1,6 +1,7 @@
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import data.ECBDoc;
+import data.ECBDocAnnotationPair;
 import data.Mention;
 import edu.stanford.nlp.coref.CorefCoreAnnotations;
 import edu.stanford.nlp.coref.data.CorefChain;
@@ -21,36 +22,43 @@ public class ExtractStanfordCoref {
     private static StanfordCoreNLP sPipeline;
     private static Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-    static {
-        Properties props = new Properties();
-        props.setProperty("annotators", "tokenize,ssplit,pos,lemma,ner,parse,depparse,coref");
-        props.setProperty("coref.algorithm", "neural");
-        sPipeline = new StanfordCoreNLP(props);
-    }
-
     private static List<Mention> evaluateCoref(String ecbDocPath) throws IOException, SAXException, ParserConfigurationException {
-        final List<ECBDoc> ecbDocs = ECBDoc.readEcb(ecbDocPath);
+        final List<ECBDocAnnotationPair> ecbDocAnnotationPairs = ECBDoc.readEcbToAnnotation(ecbDocPath);
         final List<Mention> allMentions = new ArrayList<>();
-        for(ECBDoc doc : ecbDocs) {
-            String docText = doc.getText();
-            System.out.println("\n #### DOCUMENT:" + doc.getDoc_id() + ", TEXT: #####\n" + docText);
-            Annotation document = new Annotation(docText);
-            sPipeline.annotate(document);
-            doc.alignWithResourceDoc(document);
-            final Collection<CorefChain> corefChains = document.get(CorefCoreAnnotations.CorefChainAnnotation.class).values();
-            doc.setWithinCoref(corefChains);
-            allMentions.addAll(doc.createMentionsData());
-            System.out.println("Done with doc-" + doc.getDoc_id());
+        for(ECBDocAnnotationPair pair : ecbDocAnnotationPairs) {
+            Annotation annotDocument = pair.getAnnotation();
+            ECBDoc ecbDoc = pair.getDoc();
+            sPipeline.annotate(annotDocument);
+            final Collection<CorefChain> corefChains = annotDocument.get(CorefCoreAnnotations.CorefChainAnnotation.class).values();
+            ecbDoc.setWithinCoref(corefChains);
+            allMentions.addAll(ecbDoc.createMentionsData());
+            System.out.println("Done with doc-" + ecbDoc.getDoc_id());
         }
 
         return allMentions;
     }
 
     public static void main(String[] args) throws ParserConfigurationException, SAXException, IOException {
-        final String resource = ExtractStanfordCoref.class.getClassLoader().getResource("ECB+/1").getFile();
-        final File outfile = new File("/Users/aeirew/workspace/ecb-wd-stanford-coref/output/ecb_wd_coref.json");
+        String ecb_path = null;
+        String output = null;
+        for ( int i = 0; i < args.length; i++ ) {
+            if ( args[i].equals("-ecb") ) {
+                i++;
+                ecb_path = args[i];
+            } else if ( args[i].equals("-output") ) {
+                i++;
+                output = args[i];
+            }
+        }
+
+        Properties props = new Properties();
+        props.setProperty("annotators", "pos,lemma,ner,parse,depparse,coref");
+        props.setProperty("coref.algorithm", "neural");
+        sPipeline = new StanfordCoreNLP(props, false);
+
+        final File outfile = new File(output);
         long startTime = System.currentTimeMillis();
-        List<Mention> mentions = evaluateCoref(resource);
+        List<Mention> mentions = evaluateCoref(ecb_path);
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
 

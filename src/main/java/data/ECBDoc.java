@@ -4,6 +4,7 @@ import edu.stanford.nlp.coref.data.CorefChain;
 import edu.stanford.nlp.ling.CoreAnnotations;
 import edu.stanford.nlp.ling.CoreLabel;
 import edu.stanford.nlp.pipeline.Annotation;
+import edu.stanford.nlp.util.CoreMap;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.DirectoryFileFilter;
 import org.apache.commons.io.filefilter.RegexFileFilter;
@@ -43,80 +44,26 @@ public class ECBDoc {
         return tokens;
     }
 
-    public void alignWithResourceDoc(Annotation document) {
-        final List<CoreLabel> coreLabels = document.get(CoreAnnotations.TokensAnnotation.class);
-        int x = 0;
-        for(int i = 0 ; i < coreLabels.size() ; i++) {
-            for(int j = x ; j < this.tokens.size() ; j++) {
-                CoreLabel stfToken = coreLabels.get(i);
-                String stfTokenText = stfToken.get(CoreAnnotations.TextAnnotation.class);
-                if(this.tokens.get(j).getDoc_tok_id_span() == null) {
-                    if (stfTokenText.equals(this.tokens.get(j).getToken_text())) {
-                        this.tokens.get(j).addDoc_tok_id_span(i);
-                        this.tokens.get(j).addDoc_tok_id_span(i);
-                        this.tokens.get(j).setSpan_closed(true);
-                        if(j > 0) {
-                            this.tokens.get(j - 1).setSpan_closed(true);
-                            x = j - 1;
-                        } else {
-                            x = 0;
-                        }
-                        break;
-                    } else if (this.tokens.get(j).getToken_text().contains(stfTokenText)) {
-                        this.tokens.get(j).addDoc_tok_id_span(i);
-                        if(j > 0) {
-                            x = j - 1;
-                        } else {
-                            x = 0;
-                        }
-                        break;
-                    } else if (stfTokenText.contains(this.tokens.get(j).getToken_text())) {
-                        this.tokens.get(j).addDoc_tok_id_span(i);
-                        this.tokens.get(j).setSpan_closed(true);
-                        if(j > 0) {
-                            this.tokens.get(j - 1).setSpan_closed(true);
-                            x = j - 1;
-                        } else {
-                            x = 0;
-                        }
-                        break;
-                    }
-                } else if(this.tokens.get(j).getToken_text().contains(stfTokenText)) {
-                    this.tokens.get(j).addDoc_tok_id_span(i);
-                    if(j > 0) {
-                        x = j - 1;
-                    } else {
-                        x = 0;
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    private void findTokenAndSetClusterId(int tokenId, int clusterId) {
-        boolean found = false;
+    private Token getTokenByIdAndSentNum(int tokenId, int sentNum) {
         for(Token token : this.tokens) {
-            if(token.getDoc_tok_id_span() != null && token.getDoc_tok_id_span().contains(tokenId)) {
-                token.addWithin_coref(clusterId);
-                found = true;
+            if(token.getToken_id() == tokenId && token.getSent_id() == sentNum) {
+                return token;
             }
         }
 
-        if(!found) {
-            System.out.println("**** Token not found for-" + this.doc_id + ", Resource token-" + tokenId);
-        }
+        System.out.println("**** Token not found for-" + this.doc_id + ", SentId-" + sentNum + ", tokenId-" + tokenId);
+        return null;
     }
 
     public void setWithinCoref(Collection<CorefChain> corefChains) {
         for(CorefChain corefChain : corefChains) {
             final List<CorefChain.CorefMention> mentionsInTextualOrder = corefChain.getMentionsInTextualOrder();
             for(CorefChain.CorefMention mention : mentionsInTextualOrder) {
-                List<Integer> corefSpan = new ArrayList<>();
-                corefSpan.add(mention.startIndex);
-                corefSpan.add(mention.endIndex);
-                for(int tokId = corefSpan.get(0) ; tokId < corefSpan.get(1) ; tokId++ ) {
-                    findTokenAndSetClusterId(tokId, mention.corefClusterID);
+                for(int tokId = mention.startIndex - 1 ; tokId < mention.endIndex - 1 ; tokId++ ) {
+                    Token token = getTokenByIdAndSentNum(tokId, mention.sentNum - 1);
+                    if (token != null) {
+                        token.addWithin_coref(mention.corefClusterID);
+                    }
                 }
             }
         }
@@ -145,6 +92,8 @@ public class ECBDoc {
                                 break;
                             }
                         }
+                    } else {
+                        break;
                     }
                 }
                 result.add(new Mention(doc_id, token.getSent_id(), tokensIds, mention_str, String.valueOf(curWithinDoc)));
@@ -153,53 +102,139 @@ public class ECBDoc {
         return result;
     }
 
-    public static List<ECBDoc> readEcb(String ecbPath) throws ParserConfigurationException, IOException, SAXException {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        List<ECBDoc> documents = new ArrayList<>();
+    public static List<ECBDocAnnotationPair> readEcbToAnnotation(String ecbPath) throws ParserConfigurationException, IOException, SAXException {
+        List<ECBDocAnnotationPair> ecbDocAnnotationPairs = new ArrayList<>();
         Collection<File> files = FileUtils.listFiles(new File(ecbPath), new RegexFileFilter(".*xml$"),
                 DirectoryFileFilter.DIRECTORY);
 
         for (File file : files) {
-            boolean isEcbPlus = false;
-            System.out.println("Processing file-" + file.getName());
-            if(file.getName().contains("ecbplus")) {
-                isEcbPlus = true;
-            }
-            Document xmlDocument = builder.parse(file);
-            Element root = xmlDocument.getDocumentElement();
-            final String docId = root.getAttribute("doc_name");
-            String documentText = null;
-            NodeList tokensNodes = root.getElementsByTagName("token");
-            ArrayList<Token> tokens = new ArrayList<>();
-            for(int i = 0 ; i < tokensNodes.getLength() ; i++) {
-                Node nNode = tokensNodes.item(i);
-                Element tokElem = (Element) nNode;
-                int sentId = Integer.parseInt(tokElem.getAttribute("sentence"));
-                int tokenId = Integer.parseInt(tokElem.getAttribute("number"));
-                String tokenText = tokElem.getTextContent();
-                if (isEcbPlus && sentId == 0) {
-                    continue;
-                }
-                if (isEcbPlus) {
-                    sentId = sentId - 1;
-                }
-
-                tokens.add(new Token(sentId, tokenId, tokenText));
-                if (documentText == null) {
-                    documentText = tokenText;
-                } else if (tokenText.matches("\\.|,|\\?|!|'re|'s|'n|'t|'ve|'m|'ll")) {
-                    documentText += tokenText;
-                } else {
-                    documentText += " " + tokenText;
-                }
-            }
-
-            documents.add(new ECBDoc(docId, documentText, tokens));
-
+            ecbDocAnnotationPairs.add(parseFile(file));
         }
 
-        return documents;
+        return ecbDocAnnotationPairs;
+    }
+
+    static ECBDocAnnotationPair parseFile(File file) throws SAXException, IOException, ParserConfigurationException {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        boolean isEcbPlus = false;
+        System.out.println("Processing file-" + file.getName());
+        if(file.getName().contains("ecbplus")) {
+            isEcbPlus = true;
+        }
+        Document xmlDocument = builder.parse(file);
+        Element root = xmlDocument.getDocumentElement();
+        final String docId = root.getAttribute("doc_name");
+        NodeList tokensNodes = root.getElementsByTagName("token");
+
+        String documentText = null;
+        String sentText = null;
+        int tokenSentBeginInx = 0;
+        int tokenSentEndInx = 0;
+        int tokenBeginIndex = -1;
+        List<CoreLabel> coreLabels = new ArrayList<>();
+        List<CoreLabel> sentTokens = new ArrayList<>();
+        List<CoreMap> sentAnnotations = new ArrayList<>();
+        ArrayList<Token> tokens = new ArrayList<>();
+        int sentIdLast = -1;
+        for(int i = 0 ; i < tokensNodes.getLength() ; i++) {
+            Node nNode = tokensNodes.item(i);
+            Element tokElem = (Element) nNode;
+            int sentId = Integer.parseInt(tokElem.getAttribute("sentence"));
+            int tokenId = Integer.parseInt(tokElem.getAttribute("number"));
+            String tokenText = tokElem.getTextContent();
+
+            if (isEcbPlus && sentId == 0) {
+                continue;
+            }
+
+            if (isEcbPlus) {
+                sentId = sentId - 1;
+            }
+
+            if (sentId != sentIdLast) {
+                if (sentIdLast != -1) {
+                    Annotation sentAnnot = getSentenceAnnot(documentText, sentText, sentTokens, sentIdLast, tokenSentBeginInx, tokenSentEndInx);
+                    sentAnnotations.add(sentAnnot);
+                }
+                sentIdLast = sentId;
+                tokenSentBeginInx = tokenSentEndInx;
+                sentText = null;
+                sentTokens.clear();
+            }
+
+            tokenSentEndInx++;
+
+            documentText = buildText(documentText, tokenText);
+            sentText = buildText(sentText, tokenText);
+
+            int charOffSetBegin = documentText.length() - tokenText.length();
+
+            tokens.add(new Token(sentId, tokenId, tokenText));
+
+            tokenBeginIndex ++;
+            CoreLabel coreLabel = getCoreLabel(tokenText, tokenBeginIndex, tokenId, sentId, charOffSetBegin, documentText.length());
+            coreLabels.add(coreLabel);
+            sentTokens.add(coreLabel);
+        }
+
+        Annotation sentAnnot = getSentenceAnnot(documentText, sentText, sentTokens, sentIdLast, tokenSentBeginInx, tokenSentEndInx);
+        sentAnnotations.add(sentAnnot);
+
+        ECBDoc ecbDoc = new ECBDoc(docId, documentText, tokens);
+        Annotation coreMap = new Annotation();
+        coreMap.set(CoreAnnotations.TextAnnotation.class, documentText);
+        coreMap.set(CoreAnnotations.TokensAnnotation.class, coreLabels);
+        coreMap.set(CoreAnnotations.SentencesAnnotation.class, sentAnnotations);
+
+        ECBDocAnnotationPair ecbAnnotPair = new ECBDocAnnotationPair(ecbDoc, coreMap);
+
+        return ecbAnnotPair;
+    }
+
+    private static Annotation getSentenceAnnot(String documentText, String sentText, List<CoreLabel> sentTokens, int sentIdLast, int tokenSentBeginInx, int tokenSentEndInx) {
+        Annotation sentAnnot = new Annotation();
+        int sentCharOffSetBegin = documentText.indexOf(sentText);
+        int sentCharOffSetEnd = sentCharOffSetBegin + sentText.length();
+        List<CoreLabel> sentTokensCopy = new ArrayList<>();
+        for (CoreLabel coreLabel : sentTokens) {
+            sentTokensCopy.add(coreLabel);
+        }
+
+        sentAnnot.set(CoreAnnotations.TextAnnotation.class, sentText);
+        sentAnnot.set(CoreAnnotations.CharacterOffsetBeginAnnotation.class, sentCharOffSetBegin);
+        sentAnnot.set(CoreAnnotations.CharacterOffsetEndAnnotation.class, sentCharOffSetEnd);
+        sentAnnot.set(CoreAnnotations.TokensAnnotation.class, sentTokensCopy);
+        sentAnnot.set(CoreAnnotations.TokenBeginAnnotation.class, tokenSentBeginInx);
+        sentAnnot.set(CoreAnnotations.TokenEndAnnotation.class, tokenSentEndInx);
+        sentAnnot.set(CoreAnnotations.SentenceIndexAnnotation.class, sentIdLast);
+        return sentAnnot;
+    }
+
+    private static CoreLabel getCoreLabel(String tokenText, int i, int indexInSent, int sentId, int charOffSetBegin, int charOffSetEnd) {
+        CoreLabel coreLabel = new CoreLabel();
+        coreLabel.set(CoreAnnotations.ValueAnnotation.class, tokenText);
+        coreLabel.set(CoreAnnotations.TextAnnotation.class, tokenText);
+        coreLabel.set(CoreAnnotations.OriginalTextAnnotation.class, tokenText);
+        coreLabel.set(CoreAnnotations.CharacterOffsetBeginAnnotation.class, charOffSetBegin);
+        coreLabel.set(CoreAnnotations.CharacterOffsetEndAnnotation.class, charOffSetEnd);
+        coreLabel.set(CoreAnnotations.TokenBeginAnnotation.class, i);
+        coreLabel.set(CoreAnnotations.TokenEndAnnotation.class, i + 1);
+        coreLabel.set(CoreAnnotations.IsNewlineAnnotation.class, false);
+        coreLabel.set(CoreAnnotations.IndexAnnotation.class, indexInSent + 1);
+        coreLabel.set(CoreAnnotations.SentenceIndexAnnotation.class, sentId);
+        return coreLabel;
+    }
+
+    private static String buildText(String text, String tokenText) {
+        if (text == null) {
+            text = tokenText;
+        } else if (tokenText.matches("\\.|,|\\?|!|'re|'s|'n|'t|'ve|'m|'ll")) {
+            text += tokenText;
+        } else {
+            text += " " + tokenText;
+        }
+        return text;
     }
 
     @Override

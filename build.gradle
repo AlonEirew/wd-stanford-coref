@@ -20,13 +20,11 @@ dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }
 
-distZip.shouldRunAfter(build)
-
-jar {
-    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/*.MF'
-
+task customFatJar(type: Jar) {
     manifest {
-        attributes 'Main-Class': 'ExtractStanfordCoref',
-                'Class-Path': configurations.runtime.files.collect { "lib/$it.name" }.join(' ')
+        attributes 'Main-Class': 'ExtractStanfordCoref'
     }
+    baseName = 'stanford-coref'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
 }
