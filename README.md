@@ -1,32 +1,41 @@
 # wd-stanford-coref
-Extract Within-Document(WD) Coref from ECB+ corpus using Stanford coref
+Extract Stanford Within-Document(WD) Coref from corpus data that is already tokenized (Skipping CoreNLP pipeline tokenization and aligning coref output tokens with corpus tokens)
 
+Include implementation of extracting ECB+ WD
 
 Pre-Requirements
 --
 - Java 1.8
 - Gradle
-- ECB+ corpus (<a href="http://www.newsreader-project.eu/results/data/the-ecb-corpus/">Download ECB+</a>)
+- ECB+ corpus for running WD from ECB+ (<a href="http://www.newsreader-project.eu/results/data/the-ecb-corpus/">Download ECB+</a>)
 
-Build And Run
+Build And Run Within Doc coref from ECB+
 --
 * Clone the repo
 * From command line navigate to project root directory and run:
     
     
-    ./gradlew clean customFatJar
+    ./gradlew clean buildCorefJar
     
-*Should get a message saying: `BUILD SUCCESSFUL in 7s`*
+*Should get a message saying: `BUILD SUCCESSFUL in 25s`*
 * Then run command
 
     
-    java --add-modules java.se.ee -jar build/libs/stanford-coref-1.0-SNAPSHOT.jar -ecb ECB+ -output output/ecb_wd_coref.json
+    java --add-modules java.se.ee -jar build/libs/stanford-coref-1.0-SNAPSHOT.jar -corpus ECB+ -output output/ecb_wd_coref.json
 
 
 ##### Arguments:
 
-* `-ecb`: the path location of ECB+ corpus
+* `-corpus`: the path location of corpus folder (eg. ECB+)
 * `-output`: file to save the json wd coref into
+
+
+Experiment with other corpus
+--
+* Clone the repo
+* Inherit IDataLoader and create a new DataLoader for your corpus (see EcbDataLoader for how-to example)
+* replace IDataLoader in ExtractStanfordCoref.java main() method with yours implementation 
+
 
 Output
 --

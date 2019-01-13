@@ -2,16 +2,16 @@ package data;
 
 import edu.stanford.nlp.pipeline.Annotation;
 
-public class ECBDocAnnotationPair {
-    private ECBDoc doc;
+public class DocAnnotationPair {
+    private Doc doc;
     private Annotation annotation;
 
-    public ECBDocAnnotationPair(ECBDoc doc, Annotation annotation) {
+    public DocAnnotationPair(Doc doc, Annotation annotation) {
         this.doc = doc;
         this.annotation = annotation;
     }
 
-    public ECBDoc getDoc() {
+    public Doc getDoc() {
         return doc;
     }
 

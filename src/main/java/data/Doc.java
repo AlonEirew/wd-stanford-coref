@@ -5,28 +5,15 @@ import edu.stanford.nlp.ling.CoreAnnotations;
 import edu.stanford.nlp.ling.CoreLabel;
 import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.util.CoreMap;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.filefilter.DirectoryFileFilter;
-import org.apache.commons.io.filefilter.RegexFileFilter;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import java.io.File;
-import java.io.IOException;
 import java.util.*;
 
-public class ECBDoc {
+public class Doc {
     private String doc_id;
     private String text;
     private List<Token> tokens;
 
-    public ECBDoc(String doc_id, String text, List<Token> tokens) {
+    public Doc(String doc_id, String text, List<Token> tokens) {
         this.doc_id = doc_id;
         this.text = text;
         this.tokens = tokens;
@@ -38,6 +25,10 @@ public class ECBDoc {
 
     public String getText() {
         return text;
+    }
+
+    public void setText(String text) {
+        this.text = text;
     }
 
     public List<Token> getTokens() {
@@ -102,31 +93,17 @@ public class ECBDoc {
         return result;
     }
 
-    public static List<ECBDocAnnotationPair> readEcbToAnnotation(String ecbPath) throws ParserConfigurationException, IOException, SAXException {
-        List<ECBDocAnnotationPair> ecbDocAnnotationPairs = new ArrayList<>();
-        Collection<File> files = FileUtils.listFiles(new File(ecbPath), new RegexFileFilter(".*xml$"),
-                DirectoryFileFilter.DIRECTORY);
-
-        for (File file : files) {
-            ecbDocAnnotationPairs.add(parseFile(file));
+    public static List<DocAnnotationPair> readToAnnotation(String corpusPath, IDataLoader parser) {
+        List<Doc> corpus = parser.loadDataFromCorpusFolder(corpusPath);
+        List<DocAnnotationPair> docAnnotationPairs = new ArrayList<>();
+        for (Doc doc : corpus) {
+            docAnnotationPairs.add(convertToStanfordAnnotation(doc));
         }
 
-        return ecbDocAnnotationPairs;
+        return docAnnotationPairs;
     }
 
-    static ECBDocAnnotationPair parseFile(File file) throws SAXException, IOException, ParserConfigurationException {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        boolean isEcbPlus = false;
-        System.out.println("Processing file-" + file.getName());
-        if(file.getName().contains("ecbplus")) {
-            isEcbPlus = true;
-        }
-        Document xmlDocument = builder.parse(file);
-        Element root = xmlDocument.getDocumentElement();
-        final String docId = root.getAttribute("doc_name");
-        NodeList tokensNodes = root.getElementsByTagName("token");
-
+    static DocAnnotationPair convertToStanfordAnnotation(Doc doc) {
         String documentText = null;
         String sentText = null;
         int tokenSentBeginInx = 0;
@@ -135,22 +112,12 @@ public class ECBDoc {
         List<CoreLabel> coreLabels = new ArrayList<>();
         List<CoreLabel> sentTokens = new ArrayList<>();
         List<CoreMap> sentAnnotations = new ArrayList<>();
-        ArrayList<Token> tokens = new ArrayList<>();
         int sentIdLast = -1;
-        for(int i = 0 ; i < tokensNodes.getLength() ; i++) {
-            Node nNode = tokensNodes.item(i);
-            Element tokElem = (Element) nNode;
-            int sentId = Integer.parseInt(tokElem.getAttribute("sentence"));
-            int tokenId = Integer.parseInt(tokElem.getAttribute("number"));
-            String tokenText = tokElem.getTextContent();
-
-            if (isEcbPlus && sentId == 0) {
-                continue;
-            }
-
-            if (isEcbPlus) {
-                sentId = sentId - 1;
-            }
+        for(int i = 0 ; i < doc.getTokens().size() ; i++) {
+            final Token token = doc.getTokens().get(i);
+            int sentId = token.getSent_id();
+            int tokenId = token.getToken_id();
+            String tokenText = token.getToken_text();
 
             if (sentId != sentIdLast) {
                 if (sentIdLast != -1) {
@@ -170,8 +137,6 @@ public class ECBDoc {
 
             int charOffSetBegin = documentText.length() - tokenText.length();
 
-            tokens.add(new Token(sentId, tokenId, tokenText));
-
             tokenBeginIndex ++;
             CoreLabel coreLabel = getCoreLabel(tokenText, tokenBeginIndex, tokenId, sentId, charOffSetBegin, documentText.length());
             coreLabels.add(coreLabel);
@@ -181,13 +146,13 @@ public class ECBDoc {
         Annotation sentAnnot = getSentenceAnnot(documentText, sentText, sentTokens, sentIdLast, tokenSentBeginInx, tokenSentEndInx);
         sentAnnotations.add(sentAnnot);
 
-        ECBDoc ecbDoc = new ECBDoc(docId, documentText, tokens);
+        doc.setText(documentText);
         Annotation coreMap = new Annotation();
         coreMap.set(CoreAnnotations.TextAnnotation.class, documentText);
         coreMap.set(CoreAnnotations.TokensAnnotation.class, coreLabels);
         coreMap.set(CoreAnnotations.SentencesAnnotation.class, sentAnnotations);
 
-        ECBDocAnnotationPair ecbAnnotPair = new ECBDocAnnotationPair(ecbDoc, coreMap);
+        DocAnnotationPair ecbAnnotPair = new DocAnnotationPair(doc, coreMap);
 
         return ecbAnnotPair;
     }
@@ -241,10 +206,10 @@ public class ECBDoc {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        ECBDoc ecbDoc = (ECBDoc) o;
-        return Objects.equals(doc_id, ecbDoc.doc_id) &&
-                Objects.equals(text, ecbDoc.text) &&
-                Objects.equals(tokens, ecbDoc.tokens);
+        Doc doc = (Doc) o;
+        return Objects.equals(doc_id, doc.doc_id) &&
+                Objects.equals(text, doc.text) &&
+                Objects.equals(tokens, doc.tokens);
     }
 
     @Override
