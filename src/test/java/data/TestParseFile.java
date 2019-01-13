@@ -11,7 +11,8 @@ public class TestParseFile {
 //    @Test
     public void testParsePage() throws ParserConfigurationException, SAXException, IOException {
         final String resource = TestParseFile.class.getClassLoader().getResource("ECB+/1/1_8ecbplus.xml").getFile();
-        final DocAnnotationPair docAnnotationPair = Doc.convertToStanfordAnnotation(new File(resource));
+        EcbDataLoader parser = new EcbDataLoader();
+        final DocAnnotationPair docAnnotationPair = Doc.convertToStanfordAnnotation(parser.buildDoc(new File(resource)));
         System.out.println();
     }
 }

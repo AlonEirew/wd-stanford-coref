@@ -33,7 +33,7 @@ public class EcbDataLoader implements IDataLoader {
         return corpus;
     }
 
-    private Doc buildDoc(File file) {
+    Doc buildDoc(File file) {
         Doc retDoc = null;
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
