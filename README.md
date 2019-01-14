@@ -1,7 +1,9 @@
 # wd-stanford-coref
-Extract Stanford Within-Document(WD) Coref from corpus data that is already tokenized (Skipping CoreNLP pipeline tokenization and aligning coref output tokens with corpus tokens)
+This model was developed in order to extract Stanford `coref` from already tokenized corpus, 
+in order to avoid aligning model output tokenization with corpus tokenization (which are usually different). im using the corpus tagged data (tokens, sentences,...)
+to create the tokenized data in CoreNLP format then feed to the stanford pipeline while skipping tokenization.
 
-Include implementation of extracting ECB+ WD
+Include implementation/example for extracting ECB+ corpus `coref` information
 
 Pre-Requirements
 --
