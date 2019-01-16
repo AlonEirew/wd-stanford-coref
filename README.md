@@ -23,7 +23,7 @@ Build And Run Within Doc coref from ECB+
 * Then run command
 
     
-    `java --add-modules java.se.ee -jar build/libs/stanford-coref-1.0-SNAPSHOT.jar -corpus=ECB+ -output=output/ecb_wd_coref.json -threads=4`
+    `java --add-modules java.se.ee -Xms4096m -Xmx8192m -jar build/libs/stanford-coref-1.0-SNAPSHOT.jar -corpus=ECB+ -output=output/ecb_wd_coref.json -threads=4`
 
 
 ##### Arguments:

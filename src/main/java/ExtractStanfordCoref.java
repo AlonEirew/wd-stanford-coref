@@ -13,9 +13,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public class ExtractStanfordCoref {
     private static StanfordCoreNLP sPipeline;
@@ -25,16 +23,20 @@ public class ExtractStanfordCoref {
     private static List<Mention> evaluateCoref(String ecbDocPath, IDataLoader parser) {
         final List<DocAnnotationPair> docAnnotationPairs = Doc.readToAnnotation(ecbDocPath, parser);
         final List<Mention> allMentions = new ArrayList<>();
-        docAnnotationPairs.stream().forEach(pair -> executorService.submit(() -> {
-            Annotation annotDocument = pair.getAnnotation();
-            Doc doc = pair.getDoc();
-            sPipeline.annotate(annotDocument);
-            final Collection<CorefChain> corefChains =
-                    annotDocument.get(CorefCoreAnnotations.CorefChainAnnotation.class).values();
-            doc.setWithinCoref(corefChains);
-            allMentions.addAll(doc.createMentionsData());
-            System.out.println("Done with doc-" + doc.getDoc_id());
-        }));
+        final List<Future<List<Mention>>> futureMentions = new ArrayList<>();
+        docAnnotationPairs.stream().forEach(pair -> futureMentions.add(executorService.submit(() -> getMentions(pair))));
+
+        futureMentions.stream().forEach(future -> {
+            try {
+                allMentions.addAll(future.get(10, TimeUnit.MINUTES));
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } catch (ExecutionException e) {
+                e.printStackTrace();
+            } catch (TimeoutException e) {
+                e.printStackTrace();
+            }
+        });
 
         executorService.shutdown();
         try {
@@ -50,6 +52,17 @@ public class ExtractStanfordCoref {
         }
 
         return allMentions;
+    }
+
+    private static List<Mention> getMentions(DocAnnotationPair pair) {
+        Annotation annotDocument = pair.getAnnotation();
+        Doc doc = pair.getDoc();
+        sPipeline.annotate(annotDocument);
+        final Collection<CorefChain> corefChains =
+                annotDocument.get(CorefCoreAnnotations.CorefChainAnnotation.class).values();
+        doc.setWithinCoref(corefChains);
+        System.out.println("Done with doc-" + doc.getDoc_id());
+        return doc.createMentionsData();
     }
 
     public static void main(String[] args) throws IOException {
