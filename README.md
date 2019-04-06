@@ -3,6 +3,8 @@ This model was developed in order to extract Stanford `coref` from already token
 in order to avoid aligning model output tokenization with corpus tokenization (which are usually different). im using the corpus tagged data (tokens, sentences,...)
 to create the tokenized data in CoreNLP format then feed to the stanford pipeline while skipping tokenization.
 
+For AllenNLP/SpaCy coreference resolution in python, you can find in [this repo](https://github.com/AlonEirew/wd-plus-srl-extraction)
+
 Include implementation/example for extracting ECB+ corpus `coref` information
 
 Pre-Requirements
